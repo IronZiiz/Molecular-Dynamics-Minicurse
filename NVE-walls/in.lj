@@ -1,0 +1,45 @@
+# 2d Lennard-Jones melt
+# Usando unidades (units) Lennard-Jones (lj):
+
+variable    natoms index 50
+variable    xx     index 15
+variable    yy     index 15
+variable    zz     index 10
+
+units	   lj
+dimension  3
+boundary   f f p # Delimitação de uma caixa fixa para o sistema.
+
+atom_style	 atomic 
+
+neighbor	 0.3 bin # vizinhança. 
+neigh_modify delay 0 every 20 check yes
+
+region		  box block 0 ${xx} 0 ${yy} 0 ${zz}  # Tamanho da caixa 
+region		  inbox block 1 14 1 14 1 14         # Construção de uma caixa interna, para que não gere atomos na propria borda
+
+create_box	  1 box
+create_atoms 1 random ${natoms} 12345 inbox overlap 1.0 maxtry 100 # Criação de atomos dentro da caixa 
+                                                           # 50 atomos/ seed/ distancia minima que o gerador gera um dos outros atomos/ se tentar 50 vezes a geração de particula e não tiver espaço para gerar,pare!
+
+mass		  1 1.0 # massa do atomo
+
+# fix fix2d all enforce2d
+
+velocity	all create 1.44 1234 # Velocidade inicial dos 50 atomos 
+
+pair_style	lj/cut 2.5
+pair_coeff	1 1 1.0 1.0 2.5
+
+thermo 100 # Passos de integração 
+thermo_style custom time pe ke etotal vol # Saída do sistema. Nesse caso: energia potencial, energia cinetica , energia total
+
+# Paredes para representar uma caixa fechada
+fix walls all wall/reflect xlo EDGE xhi EDGE ylo EDGE yhi EDGE units box # Parte parade de reflexão 
+
+fix		1 all nve # Integrador. Parte que resolve equação de Newton com 3 coisas conservadas( volume , numero de particulas e energia)
+
+dump dump.nve all custom 10 dump.nve.lammpstrj id type  x y z vx vy vz # Mostra a trajetoria da particula 
+
+run		3100 # Rode a simulação por 3100 vezes o delta T escolido 
+

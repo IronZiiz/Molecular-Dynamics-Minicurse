@@ -1,0 +1,256 @@
+LAMMPS (23 Jun 2022 - Update 1)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+# Termalização de um sistema com apenas água
+
+# variáveis
+variable    natoms  index 50
+variable    overlap index 2.0
+variable    maxtry  index 50
+variable    temp    index 300
+variable    lbox    index 20.0
+variable    nsteps  index 10000
+
+# Configurações gerais
+units           real
+atom_style      full
+boundary        p p p
+
+# Configurações do modelo
+pair_style      lj/cut/coul/long  14
+pair_modify     mix arithmetic tail yes
+kspace_style    ewald 0.0001
+bond_style      harmonic
+angle_style     harmonic
+
+# Configurações da caixa (box)
+
+region          box block 0 ${lbox} 0 ${lbox} 0 ${lbox} units box
+region          box block 0 20.0 0 ${lbox} 0 ${lbox} units box
+region          box block 0 20.0 0 20.0 0 ${lbox} units box
+region          box block 0 20.0 0 20.0 0 20.0 units box
+
+create_box      2 box                                       bond/types 1                                angle/types 1                               extra/bond/per/atom 2                       extra/angle/per/atom 1                      extra/special/per/atom 2
+Created orthogonal box = (0 0 0) to (20 20 20)
+  1 by 1 by 1 MPI processor grid
+
+# Modelo (template) da molécula da água
+molecule        h2omol H2O.mol
+Read molecule template h2omol:
+  1 molecules
+  0 fragments
+  3 atoms with max type 2
+  2 bonds with max type 1
+  1 angles with max type 1
+  0 dihedrals with max type 0
+  0 impropers with max type 0
+
+# Cria as moléculas de água na box
+create_atoms   	0 random ${natoms} 12345 box mol h2omol 12345 overlap ${overlap} maxtry ${maxtry} units box
+create_atoms   	0 random 1 12345 box mol h2omol 12345 overlap ${overlap} maxtry ${maxtry} units box
+create_atoms   	0 random 1 12345 box mol h2omol 12345 overlap 2.0 maxtry ${maxtry} units box
+create_atoms   	0 random 1 12345 box mol h2omol 12345 overlap 2.0 maxtry 50 units box
+Created 3 atoms
+  using box units in orthogonal box = (0 0 0) to (20 20 20)
+  create_atoms CPU = 0.001 seconds
+
+# Modelo da água (H2O): SPC/E
+pair_coeff      1 1 0.15535 3.166 # lj
+pair_coeff      * 2 0.0000 0.0000 # lj
+
+bond_coeff      1     1000       1.0    # bond
+angle_coeff     1      100       109.47 # angle
+
+# massas
+
+mass 1 15.9994 # oxigênio
+mass 2 1.0     # hidrogênio
+
+# Configurações - MD
+
+group           h2o type 1 2
+3 atoms in group h2o
+neighbor        2.0 bin
+neigh_modify    every 1 delay 1 check yes
+
+velocity       	all create ${temp} 54654
+velocity       	all create 300 54654
+timestep        1.0
+
+thermo 100
+thermo_style custom time temp press vol pe ke
+
+# Minimiza a energia
+#dump dump.min all custom 100 dump.min.h20.lammpstrj id type  x y z
+#minimize 0.0 0.0 100 1000
+#reset_timestep 0
+#undump dump.min
+
+# Ensemble NVT
+
+fix  NVT h2o nvt temp ${temp} ${temp} 100
+fix  NVT h2o nvt temp 300 ${temp} 100
+fix  NVT h2o nvt temp 300 300 100
+
+dump dump.nvt all custom 100 dump.lammpstrj id type  x y z vx vy vz
+
+run ${nsteps}
+run 10000
+Ewald initialization ...
+  using 12-bit tables for long-range coulomb (src/kspace.cpp:342)
+  G vector (1/distance) = 0.13580603
+  estimated absolute RMS force accuracy = 0.033627104
+  estimated relative force accuracy = 0.00010126703
+  KSpace vectors: actual max1d max3d = 16 2 62
+                  kxmax kymax kzmax  = 2 2 2
+Generated 0 of 1 mixed pair_coeff terms from arithmetic mixing rule
+Neighbor list info ...
+  update every 1 steps, delay 1 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 16
+  ghost atom cutoff = 16
+  binsize = 8, bins = 3 3 3
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut/coul/long, perpetual
+      attributes: half, newton on
+      pair build: half/bin/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 12.01 | 12.01 | 12.01 Mbytes
+     Time           Temp          Press          Volume         PotEng         KinEng    
+ 0              300            10.464487      8000          -0.021354955    1.788486     
+ 100            357.17366     -44.097998      8000           0.12805079     2.1293337    
+ 200            814.76753      108.31777      8000           0.28919618     4.8573345    
+ 300            556.77845     -72.655294      8000           0.16360574     3.3193016    
+ 400            220.97197      97.136633      8000           0.12277731     1.317351     
+ 500            227.50135     -135.45826      8000           0.4207909      1.3562766    
+ 600            444.86801      219.65232      8000           0.71869696     2.6521341    
+ 700            500.21334     -246.95471      8000           1.0451548      2.9820819    
+ 800            161.94709      192.55507      8000           0.5955731      0.96546703   
+ 900            71.821135     -193.22342      8000           0.60237998     0.42817032   
+ 1000           113.71809      233.35296      8000           0.83340447     0.67794407   
+ 1100           187.93616     -316.66341      8000           1.6128709      1.120404     
+ 1200           280.42329      343.16134      8000           1.9673321      1.6717772    
+ 1300           206.65977     -338.79612      8000           1.7565249      1.232027     
+ 1400           79.371627      236.32627      8000           0.88764593     0.47318348   
+ 1500           25.252145     -178.32887      8000           0.50004846     0.15054369   
+ 1600           64.738157      180.39272      8000           0.49485697     0.3859443    
+ 1700           144.42086     -205.25576      8000           0.69396641     0.86098233   
+ 1800           281.23771      218.30326      8000           0.80725566     1.6766324    
+ 1900           449.327       -207.78282      8000           0.79065969     2.6787169    
+ 2000           406.69659      175.97044      8000           0.45645766     2.4245706    
+ 2100           153.32136     -92.024643      8000           0.18914626     0.91404371   
+ 2200           127.95313      46.59629       8000           0.050950326    0.76280796   
+ 2300           244.74237     -4.1525622      8000          -0.0069209987   1.4590611    
+ 2400           372.62969     -21.783101      8000           0.13361677     2.2214766    
+ 2500           426.31016      86.064048      8000           0.1768582      2.5414992    
+ 2600           424.15875     -104.39661      8000           0.19130137     2.5286733    
+ 2700           312.55316      137.553        8000           0.32223465     1.8633232    
+ 2800           180.44619     -150.99996      8000           0.42908513     1.0757516    
+ 2900           162.41893      179.25957      8000           0.46835853     0.96827994   
+ 3000           310.38746     -274.1523       8000           1.3542258      1.8504121    
+ 3100           516.27513      321.42041      8000           1.6122083      3.0778362    
+ 3200           213.32639     -277.38801      8000           1.2810157      1.2717709    
+ 3300           158.56361      258.53943      8000           1.0482922      0.94529598   
+ 3400           146.55763     -303.27775      8000           1.455654       0.87372089   
+ 3500           213.67441      310.46036      8000           1.6188087      1.2738457    
+ 3600           235.7933      -350.67519      8000           1.8430126      1.4057101    
+ 3700           191.32618      304.5688       8000           1.5152429      1.140614     
+ 3800           70.09515      -234.09534      8000           0.90595877     0.41788066   
+ 3900           94.33353       203.76661      8000           0.61881207     0.56238067   
+ 4000           245.86946     -260.75186      8000           1.128772       1.4657803    
+ 4100           467.84907      271.50375      8000           1.2351097      2.7891384    
+ 4200           323.19235     -234.55091      8000           0.91063166     1.92675      
+ 4300           250.06798      171.96531      8000           0.45052158     1.4908103    
+ 4400           253.23388     -129.33926      8000           0.41283091     1.5096842    
+ 4500           841.04101      166.13247      8000           0.4242026      5.013967     
+ 4600           549.81081     -141.87512      8000           0.40611221     3.2777632    
+ 4700           270.82697      81.066691      8000           0.11541585     1.6145675    
+ 4800           263.60832     -32.52256       8000           0.13242506     1.5715326    
+ 4900           503.60181      3.1636209      8000           0.0083675706   3.0022826    
+ 5000           869.95945      24.317862      8000           0.018564884    5.1863677    
+ 5100           235.62034     -23.888382      8000           0.1099667      1.4046789    
+ 5200           181.30849      76.997698      8000           0.11582394     1.0808923    
+ 5300           300.34329     -130.06701      8000           0.29390337     1.7905326    
+ 5400           545.69864      199.07596      8000           0.58413439     3.253248     
+ 5500           390.85191     -200.38787      8000           0.81289791     2.3301106    
+ 5600           174.49758      179.96141      8000           0.49035193     1.0402883    
+ 5700           55.302692     -156.42006      8000           0.38261892     0.32969364   
+ 5800           11.111137      118.433        8000           0.21803469     0.066240378  
+ 5900           10.87328      -131.64974      8000           0.24322868     0.064822363  
+ 6000           16.466902      162.86076      8000           0.42963033     0.098169414  
+ 6100           43.577608     -221.22195      8000           0.76617301     0.25979314   
+ 6200           197.8045       274.29079      8000           1.1307531      1.1792353    
+ 6300           339.30612     -331.86787      8000           1.8461829      2.0228142    
+ 6400           310.98276      293.88617      8000           1.4407968      1.8539611    
+ 6500           152.31413     -212.1925       8000           0.70719069     0.90803895   
+ 6600           117.49215      151.16343      8000           0.36809767     0.70044359   
+ 6700           253.15927     -155.06349      8000           0.47108851     1.5092394    
+ 6800           695.8967       184.22003      8000           0.52883853     4.1486718    
+ 6900           396.8162      -133.24227      8000           0.32522137     2.3656674    
+ 7000           235.74535      80.625346      8000           0.13887682     1.4054242    
+ 7100           259.56203     -22.869639      8000           0.12277896     1.5474102    
+ 7200           770.34633      7.8278442      8000          -0.015083252    4.5925121    
+ 7300           742.53569     -0.96219402     8000           0.046549833    4.4267157    
+ 7400           405.82095     -14.491711      8000           0.16733303     2.4193503    
+ 7500           342.50111      60.627902      8000           0.08660963     2.0418615    
+ 7600           339.15023     -94.299957      8000           0.17843939     2.0218848    
+ 7700           485.98686      160.82681      8000           0.45867803     2.8972691    
+ 7800           673.82831     -175.64699      8000           0.81884895     4.0171084    
+ 7900           257.65619      156.8034       8000           0.3745233      1.5360483    
+ 8000           152.90882     -172.16423      8000           0.46879632     0.91158427   
+ 8100           200.43231      221.88357      8000           0.83867939     1.1949013    
+ 8200           340.88556     -308.09668      8000           1.5463117      2.0322302    
+ 8300           363.3325       300.82711      8000           1.3297812      2.1660503    
+ 8400           219.93047     -308.26182      8000           1.6022236      1.3111419    
+ 8500           184.4764       294.92058      8000           1.4351791      1.0997782    
+ 8600           165.91981     -314.93445      8000           1.4919715      0.9891509    
+ 8700           272.44787      329.98061      8000           1.772047       1.6242307    
+ 8800           365.62857     -401.98984      8000           2.6443346      2.1797386    
+ 8900           178.64094      293.20232      8000           1.3934511      1.0649894    
+ 9000           93.370296     -247.72829      8000           0.91975502     0.55663824   
+ 9100           143.74951      247.63789      8000           1.0047121      0.85697995   
+ 9200           440.47171     -323.22823      8000           1.9040115      2.625925     
+ 9300           501.9671       306.69126      8000           1.3437538      2.9925372    
+ 9400           301.24421     -260.40964      8000           1.1092361      1.7959036    
+ 9500           227.36655      198.56393      8000           0.69223676     1.355473     
+ 9600           240.23315     -162.79829      8000           0.44785573     1.4321788    
+ 9700           478.49897      161.5448       8000           0.37648367     2.8526291    
+ 9800           755.38656     -167.93892      8000           0.71156386     4.5033277    
+ 9900           276.97927      111.68069      8000           0.26645913     1.6512452    
+ 10000          241.62564     -51.851711      8000           0.06021471     1.4404803    
+Loop time of 0.086619 on 1 procs for 10000 steps with 3 atoms
+
+Performance: 9974.721 ns/day, 0.002 hours/ns, 115448.157 timesteps/s
+70.8% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.0056489  | 0.0056489  | 0.0056489  |   0.0 |  6.52
+Bond    | 0.0052291  | 0.0052291  | 0.0052291  |   0.0 |  6.04
+Kspace  | 0.020494   | 0.020494   | 0.020494   |   0.0 | 23.66
+Neigh   | 0.001047   | 0.001047   | 0.001047   |   0.0 |  1.21
+Comm    | 0.0096833  | 0.0096833  | 0.0096833  |   0.0 | 11.18
+Output  | 0.020194   | 0.020194   | 0.020194   |   0.0 | 23.31
+Modify  | 0.01219    | 0.01219    | 0.01219    |   0.0 | 14.07
+Other   |            | 0.01213    |            |       | 14.01
+
+Nlocal:              3 ave           3 max           3 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:             33 ave          33 max          33 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              3 ave           3 max           3 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 3
+Ave neighs/atom = 1
+Ave special neighs/atom = 2
+Neighbor list builds = 232
+Dangerous builds = 0
+
+#undump dump.nvt
+
+#write_data data.nvt.final
+
+Total wall time: 0:00:00

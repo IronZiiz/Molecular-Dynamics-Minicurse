@@ -1,0 +1,61 @@
+# 3d Lennard-Jones melt
+# 3d Lennard-Jones melt
+# Usando unidades (units) Lennard-Jones (lj):
+# ----
+# DENSIDADE (rho*) = scale (=número de partículas por unidade de volume)
+# scale define-se em "lattice style scale"
+# VOLUME (V)  = xx*yy*zz
+# NUMERO DE PARTICULAS (N) = scale*volume
+# ----
+# Conclusão: para mudar o número de particulas no sistema modifique
+# o produto "scale*volume" :)
+# ----
+# EXERCICIO: 
+# Observe a trajetoria no VMD para tres casos para a densidade: 0.01, 0.1, 1.0
+
+
+variable	xx index 15
+variable	yy index 15
+variable	zz index 10
+
+units	   lj
+dimension  2
+boundary   p p p
+
+atom_style	 atomic
+
+neighbor	 0.3 bin
+neigh_modify delay 0 every 20 check yes
+
+#lattice		  sc 0.01 # scale = reduced density rho* (for LJ units)
+region		  box block 0 ${xx} 0 ${yy} 0 ${zz}
+region		  inbox block 1 14 1 14 1 14
+
+create_box	  1 box
+#create_atoms  1 box
+create_atoms 1 random 50 12345 inbox overlap 1.0 maxtry 50
+#create_atoms 1 single 5 5 0
+mass		  1 1.0
+
+fix fix2d all enforce2d
+
+velocity	all create 1.44 1234
+#velocity	all set 2.0 1.0 0.0
+
+pair_style	lj/cut 2.5
+pair_coeff	1 1 1.0 1.0 2.5
+
+thermo 100
+thermo_style custom time temp pe ke etotal press vol
+# Paredes para representar uma caixa fechada
+# rigid body
+#fix xwalls all wall/lj126 xlo EDGE 1.0 1.0 2.5 xhi EDGE 1.0 1.0 2.5 units box pbc yes
+#fix ywalls all wall/lj126 ylo EDGE 1.0 1.0 2.5 yhi EDGE 1.0 1.0 2.5 units box pbc yes
+#fix zwalls all wall/lj126 zlo EDGE 1.0 1.0 2.5 zhi EDGE 1.0 1.0 2.5 units box pbc yes
+#fix walls all wall/reflect xlo EDGE xhi EDGE ylo EDGE yhi EDGE units box
+
+fix		1 all nve
+
+dump dump.nve all custom 10 dump.nve.lammpstrj id type  x y z vx vy vz
+
+run		3100
